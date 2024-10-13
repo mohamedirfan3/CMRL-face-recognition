@@ -1,0 +1,66 @@
+
+
+import cv2
+import pickle
+import numpy as np
+import os
+video=cv2.VideoCapture(0)
+facedetect=cv2.CascadeClassifier('haarcascade_frontalface_default .xml')
+
+faces_data=[]
+
+i=0
+
+name=input("Enter Your Name: ")
+while True:
+    ret, frame = video.read()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = facedetect.detectMultiScale(gray, 1.3, 5)
+    for (x, y, w, h) in faces:
+        crop_img = frame[y:y+h, x:x+w, :]
+        resized_img = cv2.resize(crop_img, (50, 50))  # Ensure all images are resized to 50x50
+        if len(faces_data) < 100 and i % 10 == 0:
+            faces_data.append(resized_img)
+        i += 1
+        cv2.putText(frame, str(len(faces_data)), (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (50, 50, 255), 1)
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (50, 50, 255), 1)
+    cv2.imshow("Frame", frame)
+    if len(faces_data) == 50:
+        break
+    cv2.waitKey(1)
+
+video.release()
+cv2.destroyAllWindows()
+
+faces_data = np.asarray(faces_data)
+faces_data = faces_data.reshape(100, -1)  # Reshape to (100, 7500) if images are 50x50x3
+
+# Load existing data
+if 'names.pkl' in os.listdir('data/'):
+    with open('data/names.pkl', 'rb') as f:
+        names = pickle.load(f)
+else:
+    names = []
+
+if 'faces_data.pkl' in os.listdir('data/'):
+    with open('data/faces_data.pkl', 'rb') as f:
+        faces = pickle.load(f)
+    
+    # Reshape old data if needed to match the new shape (7500 features)
+    if faces.shape[1] != 7500:
+        faces = faces.reshape(faces.shape[0], -1)  # Reshape old data to (n_samples, 7500)
+else:
+    faces = np.empty((0, 7500))  # Initialize empty array for faces if no data is found
+
+# Append new data
+names += [name] * 100  # Add the new name 100 times for each face sample
+faces = np.append(faces, faces_data, axis=0)  # Append new faces data
+
+# Save updated data
+with open('data/names.pkl', 'wb') as f:
+    pickle.dump(names, f)
+
+with open('data/faces_data.pkl', 'wb') as f:
+    pickle.dump(faces, f)
+
+print(f"Successfully registered {name}.")
